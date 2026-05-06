@@ -77,6 +77,7 @@ struct mode_split_config {
 
 struct mode_click_config {
     enum click button;
+    uint32_t   click_delay_ms;
 };
 
 struct config {

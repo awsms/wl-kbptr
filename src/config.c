@@ -96,6 +96,20 @@ static int parse_uint8(void *dest, char *value) {
     return 0;
 }
 
+static int parse_uint32(void *dest, char *value) {
+    errno = 0;
+    char *end;
+    unsigned long decoded = strtoul(value, &end, 10);
+
+    if (errno != 0 || *end != '\0' || decoded > UINT32_MAX) {
+        LOG_ERR("Value should be an unsigned 32-bit integer.");
+        return 1;
+    }
+
+    *((uint32_t *)dest) = (uint32_t)decoded;
+    return 0;
+}
+
 static int parse_relative_font_size(void *dest, char *value) {
     struct relative_font_size *rfs = dest;
 
@@ -412,7 +426,10 @@ static struct section_def section_defs[] = {
         MS_FIELD(horizontal_color, "#008800cc", parse_color, noop),
         MS_FIELD(history_border_color, "#3339", parse_color, noop)
     ),
-    SECTION(mode_click, MC_FIELD(button, "left", parse_click, noop)),
+    SECTION(
+        mode_click, MC_FIELD(button, "left", parse_click, noop),
+        MC_FIELD(click_delay_ms, "50", parse_uint32, noop)
+    ),
 };
 #pragma GCC diagnostic pop
 

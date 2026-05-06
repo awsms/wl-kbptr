@@ -3,7 +3,28 @@
 #include "state.h"
 #include "wlr-virtual-pointer-unstable-v1-client-protocol.h"
 
+#include <errno.h>
+#include <time.h>
 #include <wayland-client.h>
+
+static uint32_t current_time_ms(void) {
+    struct timespec ts;
+    clock_gettime(CLOCK_MONOTONIC, &ts);
+    return (uint32_t)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000);
+}
+
+static void sleep_ms(uint32_t ms) {
+    if (ms == 0) {
+        return;
+    }
+
+    struct timespec remaining = {
+        .tv_sec  = ms / 1000,
+        .tv_nsec = (ms % 1000) * 1000000,
+    };
+
+    while (nanosleep(&remaining, &remaining) == -1 && errno == EINTR) {}
+}
 
 static void _apply_transform(
     uint32_t *x, uint32_t *y, uint32_t *width, uint32_t *height,
@@ -86,22 +107,27 @@ void move_pointer(
     );
 
     zwlr_virtual_pointer_v1_motion_absolute(
-        virt_pointer, 0, x, y, output_width, output_height
+        virt_pointer, current_time_ms(), x, y, output_width, output_height
     );
     zwlr_virtual_pointer_v1_frame(virt_pointer);
     wl_display_roundtrip(state->wl_display);
 
-    if (state->click != CLICK_NONE) {
+    if (click != CLICK_NONE) {
         int btn = 271 + click;
 
+        sleep_ms(state->config.mode_click.click_delay_ms);
+
         zwlr_virtual_pointer_v1_button(
-            virt_pointer, 0, btn, WL_POINTER_BUTTON_STATE_PRESSED
+            virt_pointer, current_time_ms(), btn, WL_POINTER_BUTTON_STATE_PRESSED
         );
         zwlr_virtual_pointer_v1_frame(virt_pointer);
         wl_display_roundtrip(state->wl_display);
 
+        sleep_ms(1);
+
         zwlr_virtual_pointer_v1_button(
-            virt_pointer, 0, btn, WL_POINTER_BUTTON_STATE_RELEASED
+            virt_pointer, current_time_ms(), btn,
+            WL_POINTER_BUTTON_STATE_RELEASED
         );
         zwlr_virtual_pointer_v1_frame(virt_pointer);
         wl_display_roundtrip(state->wl_display);

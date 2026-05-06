@@ -54,3 +54,4 @@ history_border_color=#3339
 
 [mode_click]
 button=left
+click_delay_ms=50

@@ -79,6 +79,7 @@ struct mode_split_config {
 
 struct mode_click_config {
     enum click button;
+    uint32_t   click_delay_ms;
 };
 
 enum drag_marker_shape {

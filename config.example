@@ -150,6 +150,9 @@ history_border_color=#3339
 # Mouse button to trigger
 button=left
 
+# Delay between pointer motion and click, in milliseconds
+click_delay_ms=50
+
 
 ## Configuration for drag option ##
 [mode_drag]
@@ -161,4 +164,3 @@ start_marker_size=8
 
 # Marker shape
 start_marker_shape=caret
-

@@ -42,6 +42,8 @@ struct mode_floating_config {
     uint32_t                  selectable_border_color;
     char                     *label_font_family;
     struct relative_font_size label_font_size;
+    double                    label_padding_x;
+    double                    label_padding_y;
     char                     *label_symbols;
 };
 

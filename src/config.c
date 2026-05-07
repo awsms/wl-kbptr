@@ -398,6 +398,8 @@ static struct section_def section_defs[] = {
         MF_FIELD(selectable_border_color, "#040c", parse_color, noop),
         MF_FIELD(label_font_family, "sans-serif", parse_str, free_str),
         MF_FIELD(label_font_size, "12 50% 100", parse_relative_font_size, noop),
+        MF_FIELD(label_padding_x, "4", parse_double, noop),
+        MF_FIELD(label_padding_y, "2", parse_double, noop),
         MF_FIELD(
             label_symbols, "abcdefghijklmnopqrstuvwxyz", parse_str, free_str
         )

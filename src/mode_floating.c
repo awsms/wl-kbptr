@@ -16,6 +16,10 @@
 
 #define MIN_SUB_AREA_SIZE (25 * 50)
 
+static double max_double(double a, double b) {
+    return a > b ? a : b;
+}
+
 static void get_areas_from_stdin(struct floating_mode_state *ms) {
     size_t       areas_cap   = 256;
     struct rect *areas       = malloc(sizeof(struct rect) * areas_cap);
@@ -191,17 +195,6 @@ void floating_mode_render(
             label_selection_is_included(curr_label, ms->label_selection);
 
         if (selectable) {
-            cairo_set_operator(cairo, CAIRO_OPERATOR_OVER);
-            cairo_set_source_u32(cairo, config->selectable_bg_color);
-            cairo_rectangle(cairo, a.x, a.y, a.w, a.h);
-            cairo_fill(cairo);
-
-            cairo_set_operator(cairo, CAIRO_OPERATOR_SOURCE);
-            cairo_set_source_u32(cairo, config->selectable_border_color);
-            cairo_rectangle(cairo, a.x + .5, a.y + .5, a.w - 1, a.h - 1);
-            cairo_set_line_width(cairo, 1);
-            cairo_stroke(cairo);
-
             cairo_set_font_size(
                 cairo, compute_relative_font_size(&config->label_font_size, a.h)
             );
@@ -218,11 +211,32 @@ void floating_mode_render(
             cairo_text_extents(cairo, label_selected_str, &te_selected);
             cairo_text_extents(cairo, label_unselected_str, &te_unselected);
 
+            const double text_width =
+                te_selected.x_advance + te_unselected.x_advance;
+            const double label_width =
+                max_double(a.w, text_width + config->label_padding_x * 2);
+            const double label_height =
+                max_double(a.h, te_all.height + config->label_padding_y * 2);
+            const double label_x = a.x + (a.w - label_width) / 2;
+            const double label_y = a.y + (a.h - label_height) / 2;
+
+            cairo_set_operator(cairo, CAIRO_OPERATOR_OVER);
+            cairo_set_source_u32(cairo, config->selectable_bg_color);
+            cairo_rectangle(cairo, label_x, label_y, label_width, label_height);
+            cairo_fill(cairo);
+
+            cairo_set_operator(cairo, CAIRO_OPERATOR_SOURCE);
+            cairo_set_source_u32(cairo, config->selectable_border_color);
+            cairo_rectangle(
+                cairo, label_x + .5, label_y + .5, label_width - 1,
+                label_height - 1
+            );
+            cairo_set_line_width(cairo, 1);
+            cairo_stroke(cairo);
+
             cairo_move_to(
-                cairo,
-                a.x +
-                    (a.w - te_selected.x_advance - te_unselected.x_advance) / 2,
-                a.y + (int)((a.h + te_all.height) / 2)
+                cairo, label_x + (label_width - text_width) / 2,
+                label_y + (label_height - te_all.height) / 2 - te_all.y_bearing
             );
             cairo_set_operator(cairo, CAIRO_OPERATOR_OVER);
             cairo_set_source_u32(cairo, config->label_select_color);

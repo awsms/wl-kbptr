@@ -9,6 +9,8 @@
 #include <stdlib.h>
 #include <wayland-client.h>
 
+#include <algorithm>
+
 static pixman_format_code_t get_pixman_format(enum wl_shm_format format) {
     switch (format) {
     case WL_SHM_FORMAT_RGB332:
@@ -338,6 +340,67 @@ static size_t filter_rects(
     return not_filtered_count;
 }
 
+static double rect_area(const cv::Rect2d &rect) {
+    return rect.width * rect.height;
+}
+
+static cv::Rect2d expand_rect(const cv::Rect2d &rect, double amount) {
+    return cv::Rect2d(
+        rect.x - amount, rect.y - amount, rect.width + amount * 2,
+        rect.height + amount * 2
+    );
+}
+
+static bool is_duplicate_rect(const cv::Rect2d &a, const cv::Rect2d &b) {
+    const cv::Rect2d intersection = a & b;
+    if (intersection.area() <= 0) {
+        const cv::Rect2d expanded_intersection =
+            expand_rect(a, 2) & expand_rect(b, 2);
+        return expanded_intersection.area() > 0;
+    }
+
+    const double min_area = std::min(rect_area(a), rect_area(b));
+    if (min_area <= 0) {
+        return false;
+    }
+
+    return intersection.area() / min_area >= 0.25;
+}
+
+static void dedupe_rects(
+    const std::vector<cv::Rect2d> &rects, const std::vector<bool> &filtered,
+    std::vector<cv::Rect2d> &deduped
+) {
+    deduped.clear();
+
+    std::vector<size_t> indexes;
+    indexes.reserve(rects.size());
+
+    for (size_t i = 0; i < rects.size(); i++) {
+        if (!filtered[i]) {
+            indexes.push_back(i);
+        }
+    }
+
+    std::sort(indexes.begin(), indexes.end(), [&rects](size_t a, size_t b) {
+        return rect_area(rects[a]) > rect_area(rects[b]);
+    });
+
+    for (size_t i : indexes) {
+        bool duplicate = false;
+        for (const auto &kept : deduped) {
+            if (is_duplicate_rect(rects[i], kept)) {
+                duplicate = true;
+                break;
+            }
+        }
+
+        if (!duplicate) {
+            deduped.push_back(rects[i]);
+        }
+    }
+}
+
 int compute_target_from_img_buffer(
     void *data, uint32_t height, uint32_t width, uint32_t stride,
     enum wl_shm_format format, enum wl_output_transform transform,
@@ -366,16 +429,14 @@ int compute_target_from_img_buffer(
     std::vector<bool>       filtered;
 
     compute_rects(contours, rects, scale, initial_area.x, initial_area.y);
-    int final_rect_count = filter_rects(rects, hierachy, filtered);
+    filter_rects(rects, hierachy, filtered);
+
+    std::vector<cv::Rect2d> final_rects;
+    dedupe_rects(rects, filtered, final_rects);
 
     size_t area_i = 0;
-    *areas = (struct rect *)malloc(sizeof(struct rect) * final_rect_count);
-    for (size_t i = 0; i < rects.size(); i++) {
-        if (filtered[i]) {
-            continue;
-        }
-
-        const auto   rect = rects[i];
+    *areas = (struct rect *)malloc(sizeof(struct rect) * final_rects.size());
+    for (const auto &rect : final_rects) {
         struct rect *area = &(*areas)[area_i];
         area->x           = round(rect.x);
         area->y           = round(rect.y);
@@ -385,5 +446,5 @@ int compute_target_from_img_buffer(
         area_i++;
     }
 
-    return final_rect_count;
+    return final_rects.size();
 }

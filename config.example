@@ -75,6 +75,12 @@ label_font_family=sans-serif
 # See mode_tile.label_font_size for a detailed description.
 label_font_size=12 50% 100
 
+# Horizontal padding around floating labels
+label_padding_x=4
+
+# Vertical padding around floating labels
+label_padding_y=2
+
 # Characters to use in labels
 label_symbols=abcdefghijklmnopqrstuvwxyz
 

@@ -489,6 +489,14 @@ static struct section_def section_defs[] = {
             "See mode_tile.label_font_size for a detailed description."
         ),
         MF_FIELD(
+            label_padding_x, "4", parse_double, noop,
+            "Horizontal padding around floating labels"
+        ),
+        MF_FIELD(
+            label_padding_y, "2", parse_double, noop,
+            "Vertical padding around floating labels"
+        ),
+        MF_FIELD(
             label_symbols, "abcdefghijklmnopqrstuvwxyz", parse_str, free_str,
             "Characters to use in labels"
         )

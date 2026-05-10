@@ -19,6 +19,14 @@ typedef struct {
 typedef struct {
     label_symbols_t *label_symbols;
     int              num_labels;
+    int              max_len;
+    int             *lens;
+    unsigned char   *labels;
+} label_layout_t;
+
+typedef struct {
+    label_symbols_t *label_symbols;
+    int              num_labels;
     unsigned char    len;
     unsigned char    next;
     unsigned char    input[];
@@ -39,9 +47,57 @@ char *label_symbols_idx_to_ptr(label_symbols_t *label_symbols, int idx);
 // Returns value <0 upon error.
 int label_symbols_find_idx(label_symbols_t *label_symbols, char *s);
 
+// Create a label layout with the classic wl-kbptr labels.
+label_layout_t *
+label_layout_new(label_symbols_t *label_symbols, int num_labels);
+
+// Create a label layout using top/bottom root hint pools. Empty pools fall back
+// to the full label symbol set.
+label_layout_t *label_layout_new_with_top_bottom(
+    label_symbols_t *label_symbols, int num_labels, bool *is_top,
+    char *top_hints, char *bottom_hints
+);
+
+// Returns the maximum number of symbols in any label.
+int label_layout_max_len(label_layout_t *label_layout);
+
+// Returns the maximum number of bytes needed to store a label string.
+int label_layout_str_max_len(label_layout_t *label_layout);
+
+// Returns true if label at `idx` starts with `start`.
+bool label_layout_is_included(
+    label_layout_t *label_layout, int idx, label_selection_t *start
+);
+
+// Returns true if any label starts with `start`.
+bool label_layout_has_prefix(
+    label_layout_t *label_layout, label_selection_t *start
+);
+
+// Returns associated label index when `selection` exactly matches a label.
+int label_layout_to_idx(
+    label_layout_t *label_layout, label_selection_t *selection
+);
+
+// Get label's string.
+void label_layout_str(label_layout_t *label_layout, int idx, char *out);
+
+// Get label string split at `cut`.
+void label_layout_str_split(
+    label_layout_t *label_layout, int idx, char *prefix, char *suffix, int cut
+);
+
+// Free memory of a `label_layout_t`.
+void label_layout_free(label_layout_t *label_layout);
+
 // Create a `label_selection_t`.
 label_selection_t *
 label_selection_new(label_symbols_t *label_symbols, int num_labels);
+
+// Create a `label_selection_t` with an explicit maximum length.
+label_selection_t *label_selection_new_with_len(
+    label_symbols_t *label_symbols, int num_labels, int len
+);
 
 // Clear selection.
 void label_selection_clear(label_selection_t *label_selection);
@@ -54,6 +110,10 @@ enum label_selection_append_ret {
 // Append to selection.
 enum label_selection_append_ret
 label_selection_append(label_selection_t *label_selection, int idx);
+
+// Append to selection without applying numeric label overflow checks.
+enum label_selection_append_ret
+label_selection_append_raw(label_selection_t *label_selection, int idx);
 
 // Erase last symbol.
 // Returns true if it did else false.

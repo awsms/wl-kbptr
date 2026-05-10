@@ -136,6 +136,100 @@ int main() {
         }
     }
 
+    label_layout_t *legacy_layout = label_layout_new(label_symbols, 100);
+    int             legacy_buf_size =
+        label_layout_str_max_len(legacy_layout) + 1;
+    char legacy_buf[legacy_buf_size];
+
+    for (int i = 0; i < 100; i++) {
+        label_layout_str(legacy_layout, i, legacy_buf);
+        label_selection_set_from_idx(label_selection, i);
+        label_selection_str(label_selection, label_selection_str_buf);
+        if (strcmp(legacy_buf, label_selection_str_buf)) {
+            LOG_ERR(
+                "Legacy layout label mismatch for %d: '%s' != '%s'", i,
+                legacy_buf, label_selection_str_buf
+            );
+            return 15;
+        }
+    }
+
+    label_symbols_t *region_symbols = label_symbols_from_str("abc");
+    bool             is_top[]       = {true, true, false};
+    label_layout_t  *region_layout  = label_layout_new_with_top_bottom(
+        region_symbols, 3, is_top, "a", "b"
+    );
+    int  region_buf_size = label_layout_str_max_len(region_layout) + 1;
+    char region_buf[region_buf_size];
+
+    label_layout_str(region_layout, 0, region_buf);
+    if (strcmp(region_buf, "aa")) {
+        LOG_ERR("Wrong top region label 0 '%s'", region_buf);
+        return 16;
+    }
+
+    label_layout_str(region_layout, 1, region_buf);
+    if (strcmp(region_buf, "ab")) {
+        LOG_ERR("Wrong top region label 1 '%s'", region_buf);
+        return 17;
+    }
+
+    label_layout_str(region_layout, 2, region_buf);
+    if (strcmp(region_buf, "b")) {
+        LOG_ERR("Wrong bottom region label '%s'", region_buf);
+        return 18;
+    }
+
+    label_selection_t *region_selection = label_selection_new_with_len(
+        region_symbols, 3, label_layout_max_len(region_layout)
+    );
+    label_selection_append_raw(
+        region_selection, label_symbols_find_idx(region_symbols, "a")
+    );
+    if (!label_layout_has_prefix(region_layout, region_selection)) {
+        LOG_ERR("Expected region layout to have prefix 'a'.");
+        return 19;
+    }
+    if (label_layout_to_idx(region_layout, region_selection) >= 0) {
+        LOG_ERR("Prefix 'a' should not exactly match a top hint.");
+        return 20;
+    }
+
+    char region_prefix[region_buf_size];
+    label_layout_str_split(
+        region_layout, 1, region_prefix, region_buf, region_selection->next
+    );
+    if (strcmp(region_prefix, "a") || strcmp(region_buf, "b")) {
+        LOG_ERR(
+            "Wrong split for region label: prefix='%s' suffix='%s'",
+            region_prefix, region_buf
+        );
+        return 21;
+    }
+
+    label_selection_append_raw(
+        region_selection, label_symbols_find_idx(region_symbols, "b")
+    );
+    if (label_layout_to_idx(region_layout, region_selection) != 1) {
+        LOG_ERR("Expected 'ab' to select label 1.");
+        return 22;
+    }
+
+    label_selection_clear(region_selection);
+    label_selection_append_raw(
+        region_selection, label_symbols_find_idx(region_symbols, "b")
+    );
+    if (label_layout_to_idx(region_layout, region_selection) != 2) {
+        LOG_ERR("Expected 'b' to select bottom label.");
+        return 23;
+    }
+
+    label_selection_free(region_selection);
+    label_layout_free(region_layout);
+    label_symbols_free(region_symbols);
+    label_layout_free(legacy_layout);
+    label_selection_free(alt_selection);
+    label_symbols_free(alt_label_symbols);
     label_selection_free(label_selection);
     label_symbols_free(label_symbols);
     return 0;

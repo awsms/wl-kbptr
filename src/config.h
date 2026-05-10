@@ -26,6 +26,8 @@ struct mode_tile_config {
     char                     *label_font_family;
     struct relative_font_size label_font_size;
     char                     *label_symbols;
+    char                     *top_hints;
+    char                     *bottom_hints;
 };
 
 enum floating_mode_source {
@@ -45,6 +47,8 @@ struct mode_floating_config {
     double                    label_padding_x;
     double                    label_padding_y;
     char                     *label_symbols;
+    char                     *top_hints;
+    char                     *bottom_hints;
 };
 
 struct mode_bisect_config {

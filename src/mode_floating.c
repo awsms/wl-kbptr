@@ -80,6 +80,13 @@ static void get_area_from_screenshot(
 
 void *floating_mode_enter(struct state *state, struct rect area) {
     struct floating_mode_state *ms = malloc(sizeof(*ms));
+    ms->area                       = area;
+    ms->areas                      = NULL;
+    ms->num_areas                  = 0;
+    ms->label_selection            = NULL;
+    ms->label_layout               = NULL;
+    ms->label_symbols              = NULL;
+    ms->label_font_face            = NULL;
 
     ms->label_symbols =
         label_symbols_from_str(state->config.mode_floating.label_symbols);
@@ -107,7 +114,28 @@ void *floating_mode_enter(struct state *state, struct rect area) {
         break;
     }
 
-    ms->label_selection = label_selection_new(ms->label_symbols, ms->num_areas);
+    bool *is_top = malloc(sizeof(*is_top) * max(1, ms->num_areas));
+    for (int i = 0; i < ms->num_areas; i++) {
+        is_top[i] =
+            ms->areas[i].y + ms->areas[i].h / 2.0 < area.y + area.h / 2.0;
+    }
+
+    ms->label_layout = label_layout_new_with_top_bottom(
+        ms->label_symbols, ms->num_areas, is_top,
+        state->config.mode_floating.top_hints,
+        state->config.mode_floating.bottom_hints
+    );
+    free(is_top);
+
+    if (ms->label_layout == NULL) {
+        state->running = false;
+        return ms;
+    }
+
+    ms->label_selection = label_selection_new_with_len(
+        ms->label_symbols, ms->num_areas,
+        label_layout_max_len(ms->label_layout)
+    );
 
     ms->label_font_face = cairo_toy_font_face_create(
         state->config.mode_floating.label_font_family, CAIRO_FONT_SLANT_NORMAL,
@@ -140,9 +168,17 @@ static bool floating_mode_key(
             return false;
         }
 
-        label_selection_append(ms->label_selection, symbol_idx);
+        if (label_selection_append_raw(ms->label_selection, symbol_idx) !=
+            LABEL_SELECTION_APPEND_SUCCESS) {
+            return false;
+        }
 
-        int idx = label_selection_to_idx(ms->label_selection);
+        if (!label_layout_has_prefix(ms->label_layout, ms->label_selection)) {
+            label_selection_back(ms->label_selection);
+            return false;
+        }
+
+        int idx = label_layout_to_idx(ms->label_layout, ms->label_selection);
         if (idx >= 0) {
             enter_next_mode(state, ms->areas[idx]);
         }
@@ -158,11 +194,7 @@ void floating_mode_render(
     struct floating_mode_state  *ms     = mode_state;
     struct mode_floating_config *config = &state->config.mode_floating;
 
-    label_selection_t *curr_label =
-        label_selection_new(ms->label_symbols, ms->num_areas);
-    label_selection_set_from_idx(curr_label, 0);
-
-    int  label_str_max_len = label_selection_str_max_len(curr_label) + 1;
+    int  label_str_max_len = label_layout_str_max_len(ms->label_layout) + 1;
     char label_prefix_str[label_str_max_len];
     char label_visible_str[label_str_max_len];
 
@@ -175,7 +207,7 @@ void floating_mode_render(
     cairo_set_operator(cairo, CAIRO_OPERATOR_SOURCE);
     for (int i = 0; i < ms->num_areas; i++) {
         const bool selectable =
-            label_selection_is_included(curr_label, ms->label_selection);
+            label_layout_is_included(ms->label_layout, i, ms->label_selection);
 
         if (selectable) {
             struct rect a = ms->areas[i];
@@ -183,27 +215,23 @@ void floating_mode_render(
             cairo_rectangle(cairo, a.x, a.y, a.w, a.h);
             cairo_fill(cairo);
         }
-
-        label_selection_incr(curr_label);
     }
 
-    label_selection_set_from_idx(curr_label, 0);
     for (int i = 0; i < ms->num_areas; i++) {
         struct rect a = ms->areas[i];
 
         const bool selectable =
-            label_selection_is_included(curr_label, ms->label_selection);
+            label_layout_is_included(ms->label_layout, i, ms->label_selection);
 
         if (selectable) {
             cairo_set_font_size(
                 cairo, compute_relative_font_size(&config->label_font_size, a.h)
             );
-            label_selection_str_split(
-                curr_label, label_prefix_str, label_visible_str,
+            label_layout_str_split(
+                ms->label_layout, i, label_prefix_str, label_visible_str,
                 ms->label_selection->next
             );
             if (label_visible_str[0] == '\0') {
-                label_selection_incr(curr_label);
                 continue;
             }
 
@@ -241,18 +269,17 @@ void floating_mode_render(
             cairo_set_source_u32(cairo, config->label_color);
             cairo_show_text(cairo, label_visible_str);
         }
-
-        label_selection_incr(curr_label);
     }
-
-    label_selection_free(curr_label);
 }
 
 void floating_mode_free(void *mode_state) {
     struct floating_mode_state *ms = mode_state;
     free(ms->areas);
-    cairo_font_face_destroy(ms->label_font_face);
+    if (ms->label_font_face != NULL) {
+        cairo_font_face_destroy(ms->label_font_face);
+    }
     label_selection_free(ms->label_selection);
+    label_layout_free(ms->label_layout);
     label_symbols_free(ms->label_symbols);
     free(ms);
 }

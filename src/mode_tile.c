@@ -16,6 +16,10 @@
 void *tile_mode_enter(struct state *state, struct rect area) {
     struct tile_mode_state *ms = malloc(sizeof(*ms));
     ms->area                   = area;
+    ms->label_selection        = NULL;
+    ms->label_layout           = NULL;
+    ms->label_symbols          = NULL;
+    ms->label_font_face        = NULL;
 
     const int max_num_sub_areas = 26 * 26;
     const int area_size         = ms->area.w * ms->area.h;
@@ -46,8 +50,32 @@ void *tile_mode_enter(struct state *state, struct rect area) {
         return ms;
     }
 
-    ms->label_selection = label_selection_new(
-        ms->label_symbols, ms->sub_area_rows * ms->sub_area_columns
+    const int num_sub_areas = ms->sub_area_rows * ms->sub_area_columns;
+    bool     *is_top        = malloc(sizeof(*is_top) * num_sub_areas);
+    for (int i = 0; i < ms->sub_area_columns; i++) {
+        for (int j = 0; j < ms->sub_area_rows; j++) {
+            const int idx = i * ms->sub_area_rows + j;
+            const int y =
+                j * ms->sub_area_height + min(j, ms->sub_area_height_off);
+            const int h =
+                ms->sub_area_height + (j < ms->sub_area_height_off ? 1 : 0);
+            is_top[idx] = y + h / 2.0 < ms->area.h / 2.0;
+        }
+    }
+
+    ms->label_layout = label_layout_new_with_top_bottom(
+        ms->label_symbols, num_sub_areas, is_top,
+        state->config.mode_tile.top_hints, state->config.mode_tile.bottom_hints
+    );
+    free(is_top);
+
+    if (ms->label_layout == NULL) {
+        state->running = false;
+        return ms;
+    }
+
+    ms->label_selection = label_selection_new_with_len(
+        ms->label_symbols, num_sub_areas, label_layout_max_len(ms->label_layout)
     );
 
     ms->label_font_face = cairo_toy_font_face_create(
@@ -107,9 +135,17 @@ static bool tile_mode_key(
             return false;
         }
 
-        label_selection_append(ms->label_selection, symbol_idx);
+        if (label_selection_append_raw(ms->label_selection, symbol_idx) !=
+            LABEL_SELECTION_APPEND_SUCCESS) {
+            return false;
+        }
 
-        int idx = label_selection_to_idx(ms->label_selection);
+        if (!label_layout_has_prefix(ms->label_layout, ms->label_selection)) {
+            label_selection_back(ms->label_selection);
+            return false;
+        }
+
+        int idx = label_layout_to_idx(ms->label_layout, ms->label_selection);
         if (idx >= 0) {
             enter_next_mode(
                 state, idx_to_rect(ms, idx, ms->area.x, ms->area.y)
@@ -143,17 +179,13 @@ void tile_mode_render(struct state *state, void *mode_state, cairo_t *cairo) {
     cairo_set_line_width(cairo, 1);
     cairo_stroke(cairo);
 
-    label_selection_t *curr_label = label_selection_new(
-        ms->label_symbols, ms->sub_area_columns * ms->sub_area_rows
-    );
-    label_selection_set_from_idx(curr_label, 0);
-
-    int  label_str_max_len = label_selection_str_max_len(curr_label) + 1;
+    int  label_str_max_len = label_layout_str_max_len(ms->label_layout) + 1;
     char label_prefix_str[label_str_max_len];
     char label_visible_str[label_str_max_len];
 
     for (int i = 0; i < ms->sub_area_columns; i++) {
         for (int j = 0; j < ms->sub_area_rows; j++) {
+            const int idx = i * ms->sub_area_rows + j;
             const int x =
                 i * ms->sub_area_width + min(i, ms->sub_area_width_off);
             const int w =
@@ -164,7 +196,9 @@ void tile_mode_render(struct state *state, void *mode_state, cairo_t *cairo) {
                 ms->sub_area_height + (j < ms->sub_area_height_off ? 1 : 0);
 
             const bool selectable =
-                label_selection_is_included(curr_label, ms->label_selection);
+                label_layout_is_included(
+                    ms->label_layout, idx, ms->label_selection
+                );
 
             cairo_set_operator(cairo, CAIRO_OPERATOR_SOURCE);
             if (selectable) {
@@ -177,12 +211,11 @@ void tile_mode_render(struct state *state, void *mode_state, cairo_t *cairo) {
                 cairo_set_line_width(cairo, 1);
                 cairo_stroke(cairo);
 
-                label_selection_str_split(
-                    curr_label, label_prefix_str, label_visible_str,
+                label_layout_str_split(
+                    ms->label_layout, idx, label_prefix_str, label_visible_str,
                     ms->label_selection->next
                 );
                 if (label_visible_str[0] == '\0') {
-                    label_selection_incr(curr_label);
                     continue;
                 }
 
@@ -197,19 +230,19 @@ void tile_mode_render(struct state *state, void *mode_state, cairo_t *cairo) {
                 cairo_set_source_u32(cairo, config->label_color);
                 cairo_show_text(cairo, label_visible_str);
             }
-
-            label_selection_incr(curr_label);
         }
     }
 
-    label_selection_free(curr_label);
     cairo_translate(cairo, -ms->area.x, -ms->area.y);
 }
 
 void tile_mode_state_free(void *mode_state) {
     struct tile_mode_state *ms = mode_state;
-    cairo_font_face_destroy(ms->label_font_face);
+    if (ms->label_font_face != NULL) {
+        cairo_font_face_destroy(ms->label_font_face);
+    }
     label_selection_free(ms->label_selection);
+    label_layout_free(ms->label_layout);
     label_symbols_free(ms->label_symbols);
     free(ms);
 }

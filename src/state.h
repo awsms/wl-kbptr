@@ -51,16 +51,19 @@ struct tile_mode_state {
     int sub_area_height_off;
 
     label_selection_t *label_selection;
+    label_layout_t    *label_layout;
     label_symbols_t   *label_symbols;
 
     cairo_font_face_t *label_font_face;
 };
 
 struct floating_mode_state {
+    struct rect  area;
     struct rect *areas;
     int          num_areas;
 
     label_selection_t *label_selection;
+    label_layout_t    *label_layout;
     label_symbols_t   *label_symbols;
 
     cairo_font_face_t *label_font_face;

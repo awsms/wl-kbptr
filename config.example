@@ -45,6 +45,12 @@ label_font_size=8 50% 100
 # Characters to use in labels
 label_symbols=abcdefghijklmnopqrstuvwxyz
 
+# Hints for top targets
+top_hints=
+
+# Hints for bottom targets
+bottom_hints=
+
 
 ## Configuration for floating mode ##
 [mode_floating]
@@ -83,6 +89,12 @@ label_padding_y=2
 
 # Characters to use in labels
 label_symbols=abcdefghijklmnopqrstuvwxyz
+
+# Hints for top targets
+top_hints=
+
+# Hints for bottom targets
+bottom_hints=
 
 
 ## Configuration for bisect mode ##

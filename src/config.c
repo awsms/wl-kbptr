@@ -449,6 +449,10 @@ static struct section_def section_defs[] = {
         MT_FIELD(
             label_symbols, "abcdefghijklmnopqrstuvwxyz", parse_str, free_str,
             "Characters to use in labels"
+        ),
+        MT_FIELD(top_hints, "", parse_str, free_str, "Hints for top targets"),
+        MT_FIELD(
+            bottom_hints, "", parse_str, free_str, "Hints for bottom targets"
         )
     ),
     SECTION(
@@ -499,6 +503,10 @@ static struct section_def section_defs[] = {
         MF_FIELD(
             label_symbols, "abcdefghijklmnopqrstuvwxyz", parse_str, free_str,
             "Characters to use in labels"
+        ),
+        MF_FIELD(top_hints, "", parse_str, free_str, "Hints for top targets"),
+        MF_FIELD(
+            bottom_hints, "", parse_str, free_str, "Hints for bottom targets"
         )
     ),
     SECTION(

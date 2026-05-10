@@ -163,8 +163,8 @@ void floating_mode_render(
     label_selection_set_from_idx(curr_label, 0);
 
     int  label_str_max_len = label_selection_str_max_len(curr_label) + 1;
-    char label_selected_str[label_str_max_len];
-    char label_unselected_str[label_str_max_len];
+    char label_prefix_str[label_str_max_len];
+    char label_visible_str[label_str_max_len];
 
     cairo_set_font_face(cairo, ms->label_font_face);
 
@@ -198,25 +198,23 @@ void floating_mode_render(
             cairo_set_font_size(
                 cairo, compute_relative_font_size(&config->label_font_size, a.h)
             );
-            cairo_text_extents_t te_all;
-            label_selection_str(curr_label, label_selected_str);
-            cairo_text_extents(cairo, label_selected_str, &te_all);
-
             label_selection_str_split(
-                curr_label, label_selected_str, label_unselected_str,
+                curr_label, label_prefix_str, label_visible_str,
                 ms->label_selection->next
             );
+            if (label_visible_str[0] == '\0') {
+                label_selection_incr(curr_label);
+                continue;
+            }
 
-            cairo_text_extents_t te_selected, te_unselected;
-            cairo_text_extents(cairo, label_selected_str, &te_selected);
-            cairo_text_extents(cairo, label_unselected_str, &te_unselected);
+            cairo_text_extents_t te_visible;
+            cairo_text_extents(cairo, label_visible_str, &te_visible);
 
-            const double text_width =
-                te_selected.x_advance + te_unselected.x_advance;
+            const double text_width = te_visible.x_advance;
             const double label_width =
                 max_double(a.w, text_width + config->label_padding_x * 2);
             const double label_height =
-                max_double(a.h, te_all.height + config->label_padding_y * 2);
+                max_double(a.h, te_visible.height + config->label_padding_y * 2);
             const double label_x = a.x + (a.w - label_width) / 2;
             const double label_y = a.y + (a.h - label_height) / 2;
 
@@ -236,13 +234,12 @@ void floating_mode_render(
 
             cairo_move_to(
                 cairo, label_x + (label_width - text_width) / 2,
-                label_y + (label_height - te_all.height) / 2 - te_all.y_bearing
+                label_y + (label_height - te_visible.height) / 2 -
+                    te_visible.y_bearing
             );
             cairo_set_operator(cairo, CAIRO_OPERATOR_OVER);
-            cairo_set_source_u32(cairo, config->label_select_color);
-            cairo_show_text(cairo, label_selected_str);
             cairo_set_source_u32(cairo, config->label_color);
-            cairo_show_text(cairo, label_unselected_str);
+            cairo_show_text(cairo, label_visible_str);
         }
 
         label_selection_incr(curr_label);

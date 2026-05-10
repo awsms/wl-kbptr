@@ -149,8 +149,8 @@ void tile_mode_render(struct state *state, void *mode_state, cairo_t *cairo) {
     label_selection_set_from_idx(curr_label, 0);
 
     int  label_str_max_len = label_selection_str_max_len(curr_label) + 1;
-    char label_selected_str[label_str_max_len];
-    char label_unselected_str[label_str_max_len];
+    char label_prefix_str[label_str_max_len];
+    char label_visible_str[label_str_max_len];
 
     for (int i = 0; i < ms->sub_area_columns; i++) {
         for (int j = 0; j < ms->sub_area_rows; j++) {
@@ -177,30 +177,25 @@ void tile_mode_render(struct state *state, void *mode_state, cairo_t *cairo) {
                 cairo_set_line_width(cairo, 1);
                 cairo_stroke(cairo);
 
-                cairo_text_extents_t te_all;
-                label_selection_str(curr_label, label_selected_str);
-                cairo_text_extents(cairo, label_selected_str, &te_all);
-
                 label_selection_str_split(
-                    curr_label, label_selected_str, label_unselected_str,
+                    curr_label, label_prefix_str, label_visible_str,
                     ms->label_selection->next
                 );
+                if (label_visible_str[0] == '\0') {
+                    label_selection_incr(curr_label);
+                    continue;
+                }
 
-                cairo_text_extents_t te_selected, te_unselected;
-                cairo_text_extents(cairo, label_selected_str, &te_selected);
-                cairo_text_extents(cairo, label_unselected_str, &te_unselected);
+                cairo_text_extents_t te_visible;
+                cairo_text_extents(cairo, label_visible_str, &te_visible);
 
                 // Centers the label.
                 cairo_move_to(
-                    cairo,
-                    x + (w - te_selected.x_advance - te_unselected.x_advance) /
-                            2,
-                    y + (int)((h + te_all.height) / 2)
+                    cairo, x + (w - te_visible.x_advance) / 2,
+                    y + (int)((h + te_visible.height) / 2)
                 );
-                cairo_set_source_u32(cairo, config->label_select_color);
-                cairo_show_text(cairo, label_selected_str);
                 cairo_set_source_u32(cairo, config->label_color);
-                cairo_show_text(cairo, label_unselected_str);
+                cairo_show_text(cairo, label_visible_str);
             }
 
             label_selection_incr(curr_label);

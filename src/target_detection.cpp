@@ -4,6 +4,7 @@
 
 #include "log.h"
 
+#include <opencv2/core/version.hpp>
 #include <opencv2/imgcodecs.hpp>
 #include <opencv2/imgproc.hpp>
 // OpenCV 5 moved `cv::boundingRect` out of `imgproc.hpp`.
